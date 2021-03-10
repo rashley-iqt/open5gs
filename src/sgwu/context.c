@@ -42,12 +42,7 @@ void sgwu_context_init(void)
     ogs_pfcp_self()->up_function_features.empu = 1;
     ogs_pfcp_self()->up_function_features_len = 2;
 
-    ogs_gtp_node_init();
-
     ogs_list_init(&self.sess_list);
-    ogs_list_init(&ogs_pfcp_self()->gtpu_list);
-    ogs_list_init(&ogs_pfcp_self()->gtpu_peer_list);
-
     ogs_pool_init(&sgwu_sess_pool, ogs_app()->pool.sess);
 
     self.sess_hash = ogs_hash_make();
@@ -65,10 +60,6 @@ void sgwu_context_final(void)
     ogs_hash_destroy(self.sess_hash);
 
     ogs_pool_final(&sgwu_sess_pool);
-
-    ogs_gtp_node_remove_all(&ogs_pfcp_self()->gtpu_peer_list);
-
-    ogs_gtp_node_final();
 
     context_initialized = 0;
 }

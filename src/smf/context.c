@@ -56,8 +56,6 @@ void smf_context_init(void)
     ogs_log_install_domain(&__smf_log_domain, "smf", ogs_core()->log.level);
     ogs_log_install_domain(&__gsm_log_domain, "gsm", ogs_core()->log.level);
 
-    ogs_gtp_node_init();
-
     ogs_list_init(&self.smf_ue_list);
 
     ogs_list_init(&self.gtpc_list);
@@ -104,8 +102,6 @@ void smf_context_final(void)
     ogs_pool_final(&smf_pf_pool);
 
     ogs_gtp_node_remove_all(&self.sgw_s5c_list);
-
-    ogs_gtp_node_final();
 
     context_initialized = 0;
 }

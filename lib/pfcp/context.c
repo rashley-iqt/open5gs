@@ -89,6 +89,8 @@ void ogs_pfcp_context_init(int num_of_gtpu_resource)
     self.pdr_hash = ogs_hash_make();
     self.far_hash = ogs_hash_make();
 
+    ogs_gtp_node_init();
+
     context_initialized = 1;
 }
 
@@ -120,6 +122,9 @@ void ogs_pfcp_context_final(void)
 
     ogs_pool_final(&ogs_pfcp_node_pool);
     ogs_pool_final(&ogs_pfcp_gtpu_resource_pool);
+
+    ogs_gtp_node_remove_all(&self.gtpu_peer_list);
+    ogs_gtp_node_final();
 
     context_initialized = 0;
 }

@@ -49,7 +49,6 @@ void sgwc_context_init(void)
     ogs_list_init(&self.gtpc_list);
     ogs_list_init(&self.gtpc_list6);
 
-    ogs_gtp_node_init();
     ogs_list_init(&self.mme_s11_list);
     ogs_list_init(&self.pgw_s5c_list);
     ogs_list_init(&self.enb_s1u_list);
@@ -85,7 +84,6 @@ void sgwc_context_final(void)
     ogs_gtp_node_remove_all(&self.pgw_s5c_list);
     ogs_gtp_node_remove_all(&self.enb_s1u_list);
     ogs_gtp_node_remove_all(&self.pgw_s5u_list);
-    ogs_gtp_node_final();
 
     context_initialized = 0;
 }
