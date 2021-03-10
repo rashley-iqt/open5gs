@@ -54,8 +54,8 @@ typedef struct ogs_pfcp_context_s {
 
     ogs_list_t      gtpu_resource_list; /* UP IP Resource List */
 
-    ogs_list_t      peer_list;      /* PFCP Node List */
-    ogs_pfcp_node_t *node;          /* Iterator for Peer round-robin */
+    ogs_list_t      pfcp_peer_list; /* PFCP Node List */
+    ogs_pfcp_node_t *pfcp_node;     /* Iterator for Peer round-robin */
 
     ogs_list_t      dev_list;       /* Tun Device List */
     ogs_list_t      subnet_list;    /* UE Subnet List */

@@ -107,9 +107,9 @@ static void pfcp_recv_cb(short when, ogs_socket_t fd, void *data)
     e = upf_event_new(UPF_EVT_N4_MESSAGE);
     ogs_assert(e);
 
-    node = ogs_pfcp_node_find(&ogs_pfcp_self()->peer_list, &from);
+    node = ogs_pfcp_node_find(&ogs_pfcp_self()->pfcp_peer_list, &from);
     if (!node) {
-        node = ogs_pfcp_node_add(&ogs_pfcp_self()->peer_list, &from);
+        node = ogs_pfcp_node_add(&ogs_pfcp_self()->pfcp_peer_list, &from);
         ogs_assert(node);
 
         node->sock = data;
@@ -160,7 +160,7 @@ int upf_pfcp_open(void)
 
     ogs_assert(ogs_pfcp_self()->pfcp_addr || ogs_pfcp_self()->pfcp_addr6);
 
-    ogs_list_for_each(&ogs_pfcp_self()->peer_list, pfcp_node)
+    ogs_list_for_each(&ogs_pfcp_self()->pfcp_peer_list, pfcp_node)
         pfcp_node_fsm_init(pfcp_node, true);
 
     return OGS_OK;
@@ -170,7 +170,7 @@ void upf_pfcp_close(void)
 {
     ogs_pfcp_node_t *pfcp_node = NULL;
 
-    ogs_list_for_each(&ogs_pfcp_self()->peer_list, pfcp_node)
+    ogs_list_for_each(&ogs_pfcp_self()->pfcp_peer_list, pfcp_node)
         pfcp_node_fsm_fini(pfcp_node);
 
     ogs_socknode_remove_all(&ogs_pfcp_self()->pfcp_list);

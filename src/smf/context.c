@@ -1023,7 +1023,7 @@ static ogs_pfcp_node_t *selected_upf_node(
             }
         }
         /* cyclic search from top to current position */
-        for (node = ogs_list_first(&ogs_pfcp_self()->peer_list);
+        for (node = ogs_list_first(&ogs_pfcp_self()->pfcp_peer_list);
                 node != next; node = ogs_list_next(node)) {
             if (!RR) {
                 if (OGS_FSM_CHECK(&node->sm, smf_pfcp_state_associated) &&
@@ -1049,7 +1049,7 @@ static ogs_pfcp_node_t *selected_upf_node(
     }
 
     ogs_error("No UPFs are PFCP associated that are suited to RR");
-    return ogs_list_first(&ogs_pfcp_self()->peer_list);
+    return ogs_list_first(&ogs_pfcp_self()->pfcp_peer_list);
 }
 
 void smf_sess_select_upf(smf_sess_t *sess)
@@ -1062,15 +1062,17 @@ void smf_sess_select_upf(smf_sess_t *sess)
      * When used for the first time, if last node is set,
      * the search is performed from the first UPF in a round-robin manner.
      */
-    if (ogs_pfcp_self()->node == NULL)
-        ogs_pfcp_self()->node = ogs_list_last(&ogs_pfcp_self()->peer_list);
+    if (ogs_pfcp_self()->pfcp_node == NULL)
+        ogs_pfcp_self()->pfcp_node =
+            ogs_list_last(&ogs_pfcp_self()->pfcp_peer_list);
 
     /* setup GTP session with selected UPF */
-    ogs_pfcp_self()->node = selected_upf_node(ogs_pfcp_self()->node, sess);
-    ogs_assert(ogs_pfcp_self()->node);
-    OGS_SETUP_PFCP_NODE(sess, ogs_pfcp_self()->node);
+    ogs_pfcp_self()->pfcp_node =
+        selected_upf_node(ogs_pfcp_self()->pfcp_node, sess);
+    ogs_assert(ogs_pfcp_self()->pfcp_node);
+    OGS_SETUP_PFCP_NODE(sess, ogs_pfcp_self()->pfcp_node);
     ogs_debug("UE using UPF on IP[%s]",
-            OGS_ADDR(&ogs_pfcp_self()->node->addr, buf));
+            OGS_ADDR(&ogs_pfcp_self()->pfcp_node->addr, buf));
 }
 
 smf_sess_t *smf_sess_add_by_apn(smf_ue_t *smf_ue, char *apn)

@@ -67,7 +67,7 @@ void ogs_pfcp_context_init(int num_of_gtpu_resource)
     ogs_pool_init(&ogs_pfcp_node_pool, ogs_app()->pool.pfcp_node);
     ogs_pool_init(&ogs_pfcp_gtpu_resource_pool, num_of_gtpu_resource);
 
-    ogs_list_init(&self.peer_list);
+    ogs_list_init(&self.pfcp_peer_list);
     ogs_list_init(&self.gtpu_resource_list);
 
     ogs_pool_init(&ogs_pfcp_sess_pool, ogs_app()->pool.sess);
@@ -120,7 +120,7 @@ void ogs_pfcp_context_final(void)
     ogs_pool_final(&ogs_pfcp_qer_pool);
     ogs_pool_final(&ogs_pfcp_bar_pool);
 
-    ogs_pfcp_node_remove_all(&self.peer_list);
+    ogs_pfcp_node_remove_all(&self.pfcp_peer_list);
     ogs_pfcp_gtpu_resource_remove_all(&self.gtpu_resource_list);
 
     ogs_pool_final(&ogs_pfcp_node_pool);
@@ -601,7 +601,7 @@ int ogs_pfcp_context_parse_config(const char *local, const char *remote)
 
                         node = ogs_pfcp_node_new(addr);
                         ogs_assert(node);
-                        ogs_list_add(&self.peer_list, node);
+                        ogs_list_add(&self.pfcp_peer_list, node);
 
                         node->num_of_tac = num_of_tac;
                         if (num_of_tac != 0)

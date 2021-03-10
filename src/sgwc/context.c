@@ -475,7 +475,7 @@ static ogs_pfcp_node_t *selected_sgwu_node(
             }
         }
         /* cyclic search from top to current position */
-        for (node = ogs_list_first(&ogs_pfcp_self()->peer_list);
+        for (node = ogs_list_first(&ogs_pfcp_self()->pfcp_peer_list);
                 node != next; node = ogs_list_next(node)) {
             if (!RR) {
                 if (OGS_FSM_CHECK(&node->sm, sgwc_pfcp_state_associated) &&
@@ -501,7 +501,7 @@ static ogs_pfcp_node_t *selected_sgwu_node(
     }
 
     ogs_error("No SGWUs are PFCP associated that are suited to RR");
-    return ogs_list_first(&ogs_pfcp_self()->peer_list);
+    return ogs_list_first(&ogs_pfcp_self()->pfcp_peer_list);
 }
 
 void sgwc_sess_select_sgwu(sgwc_sess_t *sess)
@@ -514,15 +514,17 @@ void sgwc_sess_select_sgwu(sgwc_sess_t *sess)
      * When used for the first time, if last node is set,
      * the search is performed from the first SGW-U in a round-robin manner.
      */
-    if (ogs_pfcp_self()->node == NULL)
-        ogs_pfcp_self()->node = ogs_list_last(&ogs_pfcp_self()->peer_list);
+    if (ogs_pfcp_self()->pfcp_node == NULL)
+        ogs_pfcp_self()->pfcp_node =
+            ogs_list_last(&ogs_pfcp_self()->pfcp_peer_list);
 
     /* setup GTP session with selected SGW-U */
-    ogs_pfcp_self()->node = selected_sgwu_node(ogs_pfcp_self()->node, sess);
-    ogs_assert(ogs_pfcp_self()->node);
-    OGS_SETUP_PFCP_NODE(sess, ogs_pfcp_self()->node);
+    ogs_pfcp_self()->pfcp_node =
+        selected_sgwu_node(ogs_pfcp_self()->pfcp_node, sess);
+    ogs_assert(ogs_pfcp_self()->pfcp_node);
+    OGS_SETUP_PFCP_NODE(sess, ogs_pfcp_self()->pfcp_node);
     ogs_debug("UE using SGW-U on IP[%s]",
-            OGS_ADDR(&ogs_pfcp_self()->node->addr, buf));
+            OGS_ADDR(&ogs_pfcp_self()->pfcp_node->addr, buf));
 }
 
 int sgwc_sess_remove(sgwc_sess_t *sess)
