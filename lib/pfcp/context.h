@@ -35,6 +35,8 @@ typedef struct ogs_pfcp_node_s ogs_pfcp_node_t;
 
 typedef struct ogs_pfcp_context_s {
     uint32_t        pfcp_port;      /* PFCP local port */
+    uint32_t        gtpu_port;      /* GTPU local port */
+
     const char      *tun_ifname;    /* PFCP TUN Interface Name */
 
     ogs_list_t      pfcp_list;      /* PFCP IPv4 Server List */
@@ -43,6 +45,10 @@ typedef struct ogs_pfcp_context_s {
     ogs_sock_t      *pfcp_sock6;    /* PFCP IPv6 Socket */
     ogs_sockaddr_t  *pfcp_addr;     /* PFCP IPv4 Address */
     ogs_sockaddr_t  *pfcp_addr6;    /* PFCP IPv6 Address */
+
+    ogs_list_t      gtpu_list;      /* GTPU IPv4/IPv6 Server List */
+    ogs_sock_t      *gtpu_sock;     /* GTPU IPv4 Socket */
+    ogs_sock_t      *gtpu_sock6;    /* GTPU IPv6 Socket */
 
     uint32_t        pfcp_started;   /* UTC time when the PFCP entity started */
 
@@ -56,6 +62,8 @@ typedef struct ogs_pfcp_context_s {
 
     ogs_list_t      pfcp_peer_list; /* PFCP Node List */
     ogs_pfcp_node_t *pfcp_node;     /* Iterator for Peer round-robin */
+
+    ogs_list_t      gtpu_peer_list; /* GTPU Node List */
 
     ogs_list_t      dev_list;       /* Tun Device List */
     ogs_list_t      subnet_list;    /* UE Subnet List */

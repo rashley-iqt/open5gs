@@ -200,25 +200,25 @@ int sgwu_gtp_open(void)
     ogs_socknode_t *node = NULL;
     ogs_sock_t *sock = NULL;
 
-    ogs_list_for_each(&sgwu_self()->gtpu_list, node) {
+    ogs_list_for_each(&ogs_pfcp_self()->gtpu_list, node) {
         sock = ogs_gtp_server(node);
         ogs_assert(sock);
 
         if (sock->family == AF_INET)
-            sgwu_self()->gtpu_sock = sock;
+            ogs_pfcp_self()->gtpu_sock = sock;
         else if (sock->family == AF_INET6)
-            sgwu_self()->gtpu_sock6 = sock;
+            ogs_pfcp_self()->gtpu_sock6 = sock;
 
         node->poll = ogs_pollset_add(ogs_app()->pollset,
                 OGS_POLLIN, sock->fd, _gtpv1_u_recv_cb, sock);
     }
 
-    ogs_assert(sgwu_self()->gtpu_sock || sgwu_self()->gtpu_sock6);
+    ogs_assert(ogs_pfcp_self()->gtpu_sock || ogs_pfcp_self()->gtpu_sock6);
 
     return OGS_OK;
 }
 
 void sgwu_gtp_close(void)
 {
-    ogs_socknode_remove_all(&sgwu_self()->gtpu_list);
+    ogs_socknode_remove_all(&ogs_pfcp_self()->gtpu_list);
 }

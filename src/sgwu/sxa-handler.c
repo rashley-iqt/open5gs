@@ -34,17 +34,17 @@ static void setup_gtp_node(ogs_pfcp_far_t *far)
     /* No Outer Header Creation */
     if (ip.len == 0) return;
 
-    gnode = ogs_gtp_node_find_by_ip(&sgwu_self()->peer_list, &ip);
+    gnode = ogs_gtp_node_find_by_ip(&ogs_pfcp_self()->gtpu_peer_list, &ip);
     if (!gnode) {
         gnode = ogs_gtp_node_add_by_ip(
-            &sgwu_self()->peer_list, &ip, sgwu_self()->gtpu_port,
+            &ogs_pfcp_self()->gtpu_peer_list, &ip, ogs_pfcp_self()->gtpu_port,
             ogs_app()->parameter.no_ipv4,
             ogs_app()->parameter.no_ipv6,
             ogs_app()->parameter.prefer_ipv4);
         ogs_assert(gnode);
 
         rv = ogs_gtp_connect(
-                sgwu_self()->gtpu_sock, sgwu_self()->gtpu_sock6, gnode);
+                ogs_pfcp_self()->gtpu_sock, ogs_pfcp_self()->gtpu_sock6, gnode);
         ogs_assert(rv == OGS_OK);
     }
 
@@ -156,10 +156,10 @@ void sgwu_sxa_handle_session_establishment_request(
                     } else {
                         ogs_sockaddr_t *addr = NULL, *addr6 = NULL;
 
-                        if (sgwu_self()->gtpu_sock)
-                            addr = &sgwu_self()->gtpu_sock->local_addr;
-                        if (sgwu_self()->gtpu_sock6)
-                            addr6 = &sgwu_self()->gtpu_sock6->local_addr;
+                        if (ogs_pfcp_self()->gtpu_sock)
+                            addr = &ogs_pfcp_self()->gtpu_sock->local_addr;
+                        if (ogs_pfcp_self()->gtpu_sock6)
+                            addr6 = &ogs_pfcp_self()->gtpu_sock6->local_addr;
 
                         ogs_assert(addr || addr6);
                         ogs_pfcp_sockaddr_to_f_teid(
@@ -358,10 +358,10 @@ void sgwu_sxa_handle_session_modification_request(
                     } else {
                         ogs_sockaddr_t *addr = NULL, *addr6 = NULL;
 
-                        if (sgwu_self()->gtpu_sock)
-                            addr = &sgwu_self()->gtpu_sock->local_addr;
-                        if (sgwu_self()->gtpu_sock6)
-                            addr6 = &sgwu_self()->gtpu_sock6->local_addr;
+                        if (ogs_pfcp_self()->gtpu_sock)
+                            addr = &ogs_pfcp_self()->gtpu_sock->local_addr;
+                        if (ogs_pfcp_self()->gtpu_sock6)
+                            addr6 = &ogs_pfcp_self()->gtpu_sock6->local_addr;
 
                         ogs_assert(addr || addr6);
                         ogs_pfcp_sockaddr_to_f_teid(

@@ -67,9 +67,6 @@ void ogs_pfcp_context_init(int num_of_gtpu_resource)
     ogs_pool_init(&ogs_pfcp_node_pool, ogs_app()->pool.pfcp_node);
     ogs_pool_init(&ogs_pfcp_gtpu_resource_pool, num_of_gtpu_resource);
 
-    ogs_list_init(&self.pfcp_peer_list);
-    ogs_list_init(&self.gtpu_resource_list);
-
     ogs_pool_init(&ogs_pfcp_sess_pool, ogs_app()->pool.sess);
 
     ogs_pool_init(&ogs_pfcp_pdr_pool,
@@ -86,9 +83,7 @@ void ogs_pfcp_context_init(int num_of_gtpu_resource)
     ogs_pool_init(&ogs_pfcp_rule_pool,
             ogs_app()->pool.sess * OGS_MAX_NUM_OF_RULE);
 
-    ogs_list_init(&self.dev_list);
     ogs_pool_init(&ogs_pfcp_dev_pool, OGS_MAX_NUM_OF_DEV);
-    ogs_list_init(&self.subnet_list);
     ogs_pool_init(&ogs_pfcp_subnet_pool, OGS_MAX_NUM_OF_SUBNET);
 
     self.pdr_hash = ogs_hash_make();
@@ -137,6 +132,8 @@ ogs_pfcp_context_t *ogs_pfcp_self(void)
 static int ogs_pfcp_context_prepare(void)
 {
     self.pfcp_port = OGS_PFCP_UDP_PORT;
+    self.gtpu_port = OGS_GTPV1_U_UDP_PORT;
+
     self.tun_ifname = "ogstun";
 
     return OGS_OK;
@@ -211,7 +208,7 @@ int ogs_pfcp_context_parse_config(const char *local, const char *remote)
                                     family != AF_INET && family != AF_INET6) {
                                     ogs_warn("Ignore family(%d) : "
                                         "AF_UNSPEC(%d), "
-                                        "AF_INET(%d), AF_INET6(%d) ", 
+                                        "AF_INET(%d), AF_INET6(%d) ",
                                         family, AF_UNSPEC, AF_INET, AF_INET6);
                                     family = AF_UNSPEC;
                                 }
@@ -232,7 +229,7 @@ int ogs_pfcp_context_parse_config(const char *local, const char *remote)
                                     }
 
                                     ogs_assert(num < OGS_MAX_NUM_OF_HOSTNAME);
-                                    hostname[num++] = 
+                                    hostname[num++] =
                                         ogs_yaml_iter_value(&hostname_iter);
                                 } while (
                                     ogs_yaml_iter_type(&hostname_iter) ==
@@ -292,6 +289,287 @@ int ogs_pfcp_context_parse_config(const char *local, const char *remote)
                                 NULL, self.pfcp_port);
                         ogs_assert(rv == OGS_OK);
                     }
+                } else if (!strcmp(local_key, "gtpu")) {
+                    ogs_list_t list, list6;
+                    ogs_socknode_t *node = NULL, *node6 = NULL;
+                    ogs_socknode_t *iter = NULL, *next_iter = NULL;
+
+                    ogs_yaml_iter_t gtpu_array, gtpu_iter;
+                    ogs_yaml_iter_recurse(&local_iter, &gtpu_array);
+
+                    do {
+                        int family = AF_UNSPEC;
+                        int i, num = 0;
+                        int adv_num = 0;
+                        const char *hostname[OGS_MAX_NUM_OF_HOSTNAME];
+                        const char *adv_hostname[OGS_MAX_NUM_OF_HOSTNAME];
+                        uint16_t port = ogs_pfcp_self()->gtpu_port;
+                        const char *dev = NULL;
+                        ogs_sockaddr_t *addr = NULL;
+                        ogs_sockaddr_t *adv_addr = NULL;
+                        ogs_sockaddr_t *adv_addr6 = NULL;
+                        const char *teid_range_indication = NULL;
+                        const char *teid_range = NULL;
+                        const char *network_instance = NULL;
+                        const char *source_interface = NULL;
+
+                        if (ogs_yaml_iter_type(&gtpu_array) ==
+                                YAML_MAPPING_NODE) {
+                            memcpy(&gtpu_iter, &gtpu_array,
+                                    sizeof(ogs_yaml_iter_t));
+                        } else if (ogs_yaml_iter_type(&gtpu_array) ==
+                            YAML_SEQUENCE_NODE) {
+                            if (!ogs_yaml_iter_next(&gtpu_array))
+                                break;
+                            ogs_yaml_iter_recurse(&gtpu_array, &gtpu_iter);
+                        } else if (ogs_yaml_iter_type(&gtpu_array) ==
+                            YAML_SCALAR_NODE) {
+                            break;
+                        } else
+                            ogs_assert_if_reached();
+
+                        while (ogs_yaml_iter_next(&gtpu_iter)) {
+                            const char *gtpu_key =
+                                ogs_yaml_iter_key(&gtpu_iter);
+                            ogs_assert(gtpu_key);
+
+                            if (ogs_list_count(
+                                    &ogs_pfcp_self()->gtpu_resource_list) >=
+                                OGS_MAX_NUM_OF_GTPU_RESOURCE) {
+                                ogs_warn("[Overflow]: Number of User Plane "
+                                    "IP Resource <= %d",
+                                    OGS_MAX_NUM_OF_GTPU_RESOURCE);
+                                break;
+                            }
+
+                            if (!strcmp(gtpu_key, "family")) {
+                                const char *v = ogs_yaml_iter_value(&gtpu_iter);
+                                if (v) family = atoi(v);
+                                if (family != AF_UNSPEC &&
+                                    family != AF_INET && family != AF_INET6) {
+                                    ogs_warn("Ignore family(%d)"
+                                        ": AF_UNSPEC(%d), "
+                                        "AF_INET(%d), AF_INET6(%d) ",
+                                        family, AF_UNSPEC, AF_INET, AF_INET6);
+                                    family = AF_UNSPEC;
+                                }
+                            } else if (!strcmp(gtpu_key, "addr") ||
+                                    !strcmp(gtpu_key, "name")) {
+                                ogs_yaml_iter_t hostname_iter;
+                                ogs_yaml_iter_recurse(
+                                        &gtpu_iter, &hostname_iter);
+                                ogs_assert(ogs_yaml_iter_type(&hostname_iter) !=
+                                    YAML_MAPPING_NODE);
+
+                                do {
+                                    if (ogs_yaml_iter_type(&hostname_iter) ==
+                                            YAML_SEQUENCE_NODE) {
+                                        if (!ogs_yaml_iter_next(&hostname_iter))
+                                            break;
+                                    }
+
+                                    ogs_assert(num < OGS_MAX_NUM_OF_HOSTNAME);
+                                    hostname[num++] =
+                                        ogs_yaml_iter_value(&hostname_iter);
+                                } while (
+                                    ogs_yaml_iter_type(&hostname_iter) ==
+                                        YAML_SEQUENCE_NODE);
+                            } else if (!strcmp(gtpu_key, "advertise_addr") ||
+                                    !strcmp(gtpu_key, "advertise_name")) {
+                                ogs_yaml_iter_t adv_hostname_iter;
+                                ogs_yaml_iter_recurse(
+                                        &gtpu_iter, &adv_hostname_iter);
+                                ogs_assert(ogs_yaml_iter_type(
+                                    &adv_hostname_iter) != YAML_MAPPING_NODE);
+
+                                do {
+                                    if (ogs_yaml_iter_type(
+                                        &adv_hostname_iter) ==
+                                            YAML_SEQUENCE_NODE) {
+                                        if (!ogs_yaml_iter_next(
+                                            &adv_hostname_iter))
+                                            break;
+                                    }
+
+                                    ogs_assert(adv_num <
+                                            OGS_MAX_NUM_OF_HOSTNAME);
+                                    adv_hostname[adv_num++] =
+                                        ogs_yaml_iter_value(&adv_hostname_iter);
+                                } while (
+                                    ogs_yaml_iter_type(&adv_hostname_iter) ==
+                                        YAML_SEQUENCE_NODE);
+                            } else if (!strcmp(gtpu_key, "port")) {
+                                const char *v = ogs_yaml_iter_value(&gtpu_iter);
+                                if (v) port = atoi(v);
+                            } else if (!strcmp(gtpu_key, "dev")) {
+                                dev = ogs_yaml_iter_value(&gtpu_iter);
+                            } else if (!strcmp(gtpu_key,
+                                        "teid_range_indication")) {
+                                teid_range_indication =
+                                    ogs_yaml_iter_value(&gtpu_iter);
+                            } else if (!strcmp(gtpu_key,
+                                        "teid_range")) {
+                                teid_range = ogs_yaml_iter_value(&gtpu_iter);
+                            } else if (!strcmp(gtpu_key,
+                                        "network_instance")) {
+                                network_instance =
+                                    ogs_yaml_iter_value(&gtpu_iter);
+                            } else if (!strcmp(gtpu_key,
+                                        "source_interface")) {
+                                source_interface =
+                                    ogs_yaml_iter_value(&gtpu_iter);
+                            } else
+                                ogs_warn("unknown key `%s`", gtpu_key);
+                        }
+
+                        addr = NULL;
+                        for (i = 0; i < num; i++) {
+                            rv = ogs_addaddrinfo(&addr,
+                                    family, hostname[i], port, 0);
+                            ogs_assert(rv == OGS_OK);
+                        }
+
+                        ogs_list_init(&list);
+                        ogs_list_init(&list6);
+
+                        if (addr) {
+                            if (ogs_app()->parameter.no_ipv4 == 0)
+                                ogs_socknode_add(&list, AF_INET, addr);
+                            if (ogs_app()->parameter.no_ipv6 == 0)
+                                ogs_socknode_add(&list6, AF_INET6, addr);
+                            ogs_freeaddrinfo(addr);
+                        }
+
+                        if (dev) {
+                            rv = ogs_socknode_probe(
+                                ogs_app()->parameter.no_ipv4 ? NULL : &list,
+                                ogs_app()->parameter.no_ipv6 ? NULL : &list6,
+                                dev, port);
+                            ogs_assert(rv == OGS_OK);
+                        }
+
+                        adv_addr = NULL;
+                        for (i = 0; i < adv_num; i++) {
+                            rv = ogs_addaddrinfo(&adv_addr,
+                                    family, adv_hostname[i], port, 0);
+                            ogs_assert(rv == OGS_OK);
+                        }
+                        rv = ogs_copyaddrinfo(&adv_addr6, adv_addr);
+                        ogs_assert(rv == OGS_OK);
+
+                        rv = ogs_filteraddrinfo(&adv_addr, AF_INET);
+                        ogs_assert(rv == OGS_OK);
+                        rv = ogs_filteraddrinfo(&adv_addr6, AF_INET6);
+                        ogs_assert(rv == OGS_OK);
+
+                        /* Find first IPv4/IPv6 address in the list.
+                         *
+                         * In the following configuration,
+                         * 127.0.0.4, 127.0.0.5 and cafe::1 are ignored
+                         * on PFCP Assocation Response message's
+                         * user plane IP resource information.
+                         *
+                         * gtpu:
+                         *   - addr:
+                         *     - 127.0.0.3
+                         *     - ::1
+                         *     - 127.0.0.4
+                         *     - 127.0.0.5
+                         *     - cafe::1
+                         *
+                         * To include all user plane IP resource information,
+                         * configure as below:
+                         *
+                         * gtpu:
+                         *   - addr:
+                         *     - 127.0.0.3
+                         *     - ::1
+                         *   - addr: 127.0.0.4
+                         *   - addr
+                         *     - 127.0.0.5
+                         *     - cafe::1
+                         */
+                        node = ogs_list_first(&list);
+                        node6 = ogs_list_first(&list6);
+                        if (node || node6) {
+                            ogs_pfcp_user_plane_ip_resource_info_t info;
+
+                            memset(&info, 0, sizeof(info));
+                            ogs_pfcp_sockaddr_to_user_plane_ip_resource_info(
+                                    adv_addr ? adv_addr :
+                                        node ? node->addr : NULL,
+                                    adv_addr6 ? adv_addr6 :
+                                        node6 ? node6->addr : NULL,
+                                    &info);
+
+                            if (teid_range_indication) {
+                                info.teidri = atoi(teid_range_indication);
+                                if (teid_range) {
+                                    info.teid_range = atoi(teid_range);
+                                }
+                            }
+                            if (network_instance) {
+                                info.assoni = 1;
+                                ogs_cpystrn(info.network_instance,
+                                    network_instance, OGS_MAX_APN_LEN+1);
+                            }
+                            if (source_interface) {
+                                info.assosi = 1;
+                                info.source_interface = atoi(source_interface);
+                            }
+
+                            ogs_pfcp_gtpu_resource_add(
+                                &ogs_pfcp_self()->gtpu_resource_list, &info);
+                        }
+
+                        ogs_list_for_each_safe(&list, next_iter, iter)
+                            ogs_list_add(&ogs_pfcp_self()->gtpu_list, iter);
+                        ogs_list_for_each_safe(&list6, next_iter, iter)
+                            ogs_list_add(&ogs_pfcp_self()->gtpu_list, iter);
+
+                        ogs_freeaddrinfo(adv_addr);
+                        ogs_freeaddrinfo(adv_addr6);
+
+                    } while (ogs_yaml_iter_type(&gtpu_array) ==
+                            YAML_SEQUENCE_NODE);
+
+                    if (ogs_list_first(&ogs_pfcp_self()->gtpu_list) == NULL) {
+                        ogs_list_init(&list);
+                        ogs_list_init(&list6);
+
+                        rv = ogs_socknode_probe(
+                            ogs_app()->parameter.no_ipv4 ? NULL : &list,
+                            ogs_app()->parameter.no_ipv6 ? NULL : &list6,
+                            NULL, ogs_pfcp_self()->gtpu_port);
+                        ogs_assert(rv == OGS_OK);
+
+                        /*
+                         * The first tuple IPv4/IPv6 are added
+                         * in User Plane IP resource information.
+                         *
+                         * TEID Range, Network Instance, Source Interface
+                         * cannot be configured in automatic IP detection.
+                         */
+                        node = ogs_list_first(&list);
+                        node6 = ogs_list_first(&list6);
+                        if (node || node6) {
+                            ogs_pfcp_user_plane_ip_resource_info_t info;
+
+                            memset(&info, 0, sizeof(info));
+                            ogs_pfcp_sockaddr_to_user_plane_ip_resource_info(
+                                    node ? node->addr : NULL,
+                                    node6 ? node6->addr : NULL,
+                                    &info);
+
+                            ogs_pfcp_gtpu_resource_add(
+                                &ogs_pfcp_self()->gtpu_resource_list, &info);
+                        }
+
+                        ogs_list_for_each_safe(&list, next_iter, iter)
+                            ogs_list_add(&ogs_pfcp_self()->gtpu_list, iter);
+                        ogs_list_for_each_safe(&list6, next_iter, iter)
+                            ogs_list_add(&ogs_pfcp_self()->gtpu_list, iter);
+                    }
                 } else if (!strcmp(local_key, "subnet")) {
                     ogs_yaml_iter_t subnet_array, subnet_iter;
                     ogs_yaml_iter_recurse(&local_iter, &subnet_array);
@@ -322,7 +600,8 @@ int ogs_pfcp_context_parse_config(const char *local, const char *remote)
                             ogs_assert_if_reached();
 
                         while (ogs_yaml_iter_next(&subnet_iter)) {
-                            const char *subnet_key = ogs_yaml_iter_key(&subnet_iter);
+                            const char *subnet_key =
+                                ogs_yaml_iter_key(&subnet_iter);
                             ogs_assert(subnet_key);
                             if (!strcmp(subnet_key, "addr")) {
                                 char *v =
@@ -340,7 +619,8 @@ int ogs_pfcp_context_parse_config(const char *local, const char *remote)
                                 dev = ogs_yaml_iter_value(&subnet_iter);
                             } else if (!strcmp(subnet_key, "range")) {
                                 ogs_yaml_iter_t range_iter;
-                                ogs_yaml_iter_recurse(&subnet_iter, &range_iter);
+                                ogs_yaml_iter_recurse(
+                                        &subnet_iter, &range_iter);
                                 ogs_assert(ogs_yaml_iter_type(&range_iter) !=
                                     YAML_MAPPING_NODE);
                                 do {
@@ -443,7 +723,7 @@ int ogs_pfcp_context_parse_config(const char *local, const char *remote)
                                     family != AF_INET && family != AF_INET6) {
                                     ogs_warn("Ignore family(%d) : "
                                         "AF_UNSPEC(%d), "
-                                        "AF_INET(%d), AF_INET6(%d) ", 
+                                        "AF_INET(%d), AF_INET6(%d) ",
                                         family, AF_UNSPEC, AF_INET, AF_INET6);
                                     family = AF_UNSPEC;
                                 }
@@ -463,7 +743,7 @@ int ogs_pfcp_context_parse_config(const char *local, const char *remote)
                                     }
 
                                     ogs_assert(num < OGS_MAX_NUM_OF_HOSTNAME);
-                                    hostname[num++] = 
+                                    hostname[num++] =
                                         ogs_yaml_iter_value(&hostname_iter);
                                 } while (
                                     ogs_yaml_iter_type(&hostname_iter) ==
